@@ -124,6 +124,12 @@ def process_uci_format(df_raw):
     except Exception:
         return None
 
+# Initialize session state
+if 'data' not in st.session_state:
+    st.session_state['data'] = None
+if 'processed_data' not in st.session_state:
+    st.session_state['processed_data'] = None
+
 # Sidebar for controls
 with st.sidebar:
     st.markdown("## ⚙️ Control Panel")
@@ -202,50 +208,41 @@ with st.sidebar:
 
     # Sample data option
     st.markdown("### 📊 Sample Data")
-    use_sample = st.checkbox("Use sample data (UCI Power Dataset)", value=False)
+    if st.button("🔄 Load Sample Data", type="primary", use_container_width=True):
+        # Generate sample data similar to UCI dataset
+        np.random.seed(42)
+        dates = pd.date_range(start='2023-01-01', end='2023-01-14', freq='h')
+        n_hours = len(dates)
 
-    if use_sample:
-        if st.button("🔄 Load Sample Data", type="primary"):
-            # Generate sample data similar to UCI dataset
-            np.random.seed(42)
-            dates = pd.date_range(start='2023-01-01', end='2023-01-14', freq='h')
-            n_hours = len(dates)
+        # Simulate 5 departments
+        departments = ['Lighting', 'HVAC', 'Machinery', 'IT_Systems', 'Utilities']
 
-            # Simulate 5 departments
-            departments = ['Lighting', 'HVAC', 'Machinery', 'IT_Systems', 'Utilities']
+        # Create DataFrame
+        data = []
+        for dept in departments:
+            # Base consumption pattern with daily and weekly cycles
+            base_load = np.random.uniform(10, 50)  # kW base load
+            daily_pattern = np.sin(np.arange(n_hours) * 2 * np.pi / 24) * 0.3 + 1
+            weekly_pattern = np.sin(np.arange(n_hours) * 2 * np.pi / (24*7)) * 0.2 + 1
+            noise = np.random.normal(1, 0.1, n_hours)
 
-            # Create DataFrame
-            data = []
-            for dept in departments:
-                # Base consumption pattern with daily and weekly cycles
-                base_load = np.random.uniform(10, 50)  # kW base load
-                daily_pattern = np.sin(np.arange(n_hours) * 2 * np.pi / 24) * 0.3 + 1
-                weekly_pattern = np.sin(np.arange(n_hours) * 2 * np.pi / (24*7)) * 0.2 + 1
-                noise = np.random.normal(1, 0.1, n_hours)
+            consumption = base_load * daily_pattern * weekly_pattern * noise
+            consumption = np.maximum(consumption, 0)  # No negative consumption
 
-                consumption = base_load * daily_pattern * weekly_pattern * noise
-                consumption = np.maximum(consumption, 0)  # No negative consumption
+            for i, (timestamp, cons) in enumerate(zip(dates, consumption)):
+                data.append({
+                    'timestamp': timestamp,
+                    'department': dept,
+                    'power_kW': cons,
+                    # Add some random tags for variety
+                    'area': np.random.choice(['North', 'South', 'East', 'West']),
+                    'equipment_type': np.random.choice(['Primary', 'Secondary', 'Backup'])
+                })
 
-                for i, (timestamp, cons) in enumerate(zip(dates, consumption)):
-                    data.append({
-                        'timestamp': timestamp,
-                        'department': dept,
-                        'power_kW': cons,
-                        # Add some random tags for variety
-                        'area': np.random.choice(['North', 'South', 'East', 'West']),
-                        'equipment_type': np.random.choice(['Primary', 'Secondary', 'Backup'])
-                    })
-
-            df = pd.DataFrame(data)
-            st.session_state['data'] = df
-            st.success("✅ Sample data loaded!")
-            st.balloons()
-
-# Initialize session state
-if 'data' not in st.session_state:
-    st.session_state['data'] = None
-if 'processed_data' not in st.session_state:
-    st.session_state['processed_data'] = None
+        df = pd.DataFrame(data)
+        st.session_state['data'] = df
+        st.success("✅ Sample data loaded!")
+        st.balloons()
 
 # Main application logic
 if uploaded_file is not None or (st.session_state['data'] is not None and len(st.session_state['data']) > 0):
@@ -969,10 +966,6 @@ else:
             'area': ['North', 'South', 'East', 'West', 'North']
         })
         st.dataframe(sample_preview, use_container_width=True)
-
-        if st.button("🔬 Try Sample Data", type="primary", use_container_width=True):
-            st.session_state['use_sample'] = True
-            st.rerun()
 
 # Footer
 st.markdown("---")
